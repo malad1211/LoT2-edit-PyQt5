@@ -189,24 +189,38 @@ class CharacterEditWidget(QWidget):
 			spinbox = QSpinBox()
 			spinbox.setMaximum(2147483647)
 			spinbox.setValue(self.data.value(CHAR_MEM_STRUCT[stat]))
+			spinbox.valueChanged.connect(self.pokeValue(self.data, CHAR_MEM_STRUCT[stat]))
 			self.layout.addWidget(spinbox, i+2, 1)
 		self.layout.addWidget(QLabel("SUBCLASS:"), len(STAT_ORDER)+2, 0)
 		subclass = SubclassPicker()
 		subclass.setValue(self.data.value(CHAR_MEM_STRUCT["SUBCLASS"]))
+		subclass.currentIndexChanged.connect(self.pokeSubclass)
 		self.layout.addWidget(subclass, len(STAT_ORDER)+2, 1)
 		for i, libraryUp in enumerate(LIBRARY_STAT_ORDER):
 			self.layout.addWidget(QLabel(libraryUp + ":"), i+2, 2)
 			spinbox = QSpinBox()
 			spinbox.setMaximum(2147483647)
 			spinbox.setValue(self.data.value(CHAR_MEM_STRUCT["LIBRARY"][libraryUp]))
+			spinbox.valueChanged.connect(self.pokeValue(self.data, CHAR_MEM_STRUCT["LIBRARY"][libraryUp]))
 			self.layout.addWidget(spinbox, i+2, 3)
 		for i, stat in enumerate(LEVEL_BONUS_ORDER):
 			self.layout.addWidget(QLabel(stat + ":"), i+2, 4)
 			spinbox = QSpinBox()
 			spinbox.setMaximum(2147483647)
 			spinbox.setValue(self.data.value(CHAR_MEM_STRUCT["LEVELUP"][stat]))
+			spinbox.valueChanged.connect(self.pokeValue(self.data, CHAR_MEM_STRUCT["LEVELUP"][stat]))
 			self.layout.addWidget(spinbox, i+2, 5)
 		self.setLayout(self.layout)
+
+	def pokeSubclass(self, value):
+		if value > 0:
+			value = value + 99
+		self.data.poke(CHAR_MEM_STRUCT["SUBCLASS"], value)
+
+	def pokeValue(self, dataContainer, address):
+		def pokeValueFunc(value):
+			dataContainer.poke(address, value)
+		return pokeValueFunc
 
 	@property
 	def hexData(self):
@@ -235,7 +249,7 @@ class CharacterDataTab(QWidget):
 		self.saveButton = QPushButton("Save All Changes")
 		self.saveButton.setFont(bigFont)
 		self.layout.addWidget(self.saveButton, 2, 0, 1, 3)
-		self.saveButton.pressed.connect(self.saveCharacterData)
+		self.saveButton.pressed.connect(self.saveEverything)
 		self.stack.setSizePolicy(QSizePolicy(QSizePolicy.Maximum))
 		self.setLayout(self.layout)
 		self.liste.currentRowChanged.connect(self.stack.setCurrentIndex)
@@ -267,6 +281,9 @@ class CharacterDataTab(QWidget):
 	def saveCharacterData(self):
 		for index, charName in enumerate(CHARACTER_NAMES):
 			self._saveCharacterData(index+1, self.stack.widget(index).hexData, self.basePath)
+
+	def saveEverything(self):
+		self.saveCharacterData()
 
 class MainWidget(QWidget):
 

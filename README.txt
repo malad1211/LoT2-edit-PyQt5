@@ -1,7 +1,7 @@
 東方記偽器　～　Artificial Record
 By Doctus (kirikayuumura.noir@gmail.com)
 
-* STILL UNDER DEVELOPMENT. CANNOT SAVE FILES YET. *
+* STILL UNDER DEVELOPMENT. *
 
 A LoT2 save editor.
 https://en.touhouwiki.net/wiki/Labyrinth_of_Touhou_2
