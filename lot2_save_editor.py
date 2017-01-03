@@ -25,7 +25,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 import os
 
-EDITOR_TITLE = u"東方記偽器　～　Artificial Record"
+EDITOR_TITLE = u"東方記偽器　～　Artificial Record v1.00"
 
 CHARACTER_NAMES = ["Reimu", "Marisa", "Rinnosuke", "Keine",
 					"Momiji", "Youmu", "Kogasa", "Rumia",
@@ -53,6 +53,11 @@ LIBRARY_STAT_ORDER = ["HP", "ATTACK", "DEFENSE", "MAGIC",
 						"MIND", "SPEED", "FIRE", "COLD",
 						"WIND", "NATURE", "MYSTIC", "SPIRIT",
 						"DARK", "PHYSICAL"]
+GENERAL_STUFF_ORDER = ["TIME", "MONEY", "BATTLES"]
+
+GENERAL_MEM_STRUCT = {"TIME": [4, 2],
+						"MONEY": [13, 3],
+						"BATTLES": [17, 1]}
 
 CHAR_MEM_STRUCT = {"LEVEL": 3,
 					"EXPERIENCE": 11,
@@ -94,51 +99,46 @@ class HexDataContainer(object):
 	def hexData(self):
 		return "".join(["%c" % byte for byte in self._hexData])
 
-	def bigValue(self, address):
-		return (self._hexData[address-5] * 0x10000000000 +
-				self._hexData[address-4] * 0x100000000 +
-				self._hexData[address-3] * 0x1000000 +
-				self._hexData[address-2] * 0x10000 +
-				self._hexData[address-1] * 0x100 +
-				self._hexData[address])
+	def _value(self, address, limit):
+		return sum([self._hexData[address-i] * (0x100**i) for i in range(limit)])
 
-	def value(self, address):
-		return (self._hexData[address-3] * 0x1000000 +
-				self._hexData[address-2] * 0x10000 +
-				self._hexData[address-1] * 0x100 +
-				self._hexData[address])
+	def bigValue(self, address):
+		return self._value(address, 6)
+
+	def value(self, address, limit=4):
+		return self._value(address, limit)
 
 	def singleValue(self, address):
 		return self._hexData[address]
 
 	def bigPoke(self, address, newValue):
 		if newValue <= 0xFFFFFFFFFFFF:
-			self._hexData[address] = "%c" % newValue % 0x100
+			self._hexData[address] = "%c" % (newValue % 0x100)
 			if newValue > 0xFF:
-				self._hexData[address-1] = "%c" % (newValue / 0x100) % 0x100
+				self._hexData[address-1] = "%c" % ((newValue / 0x100) % 0x100)
 			if newValue > 0xFFFF:
-				self._hexData[address-2] = "%c" % (newValue / 0x10000) % 0x100
+				self._hexData[address-2] = "%c" % ((newValue / 0x10000) % 0x100)
 			if newValue > 0xFFFFFF:
-				self._hexData[address-3] = "%c" % (newValue / 0x1000000) % 0x100
+				self._hexData[address-3] = "%c" % ((newValue / 0x1000000) % 0x100)
 			if newValue > 0xFFFFFFFF:
-				self._hexData[address-4] = "%c" % (newValue / 0x100000000) % 0x100
+				self._hexData[address-4] = "%c" % ((newValue / 0x100000000) % 0x100)
 			if newValue > 0xFFFFFFFFFF:
-				self._hexData[address-5] = "%c" % newValue / 0x10000000000
+				self._hexData[address-5] = "%c" % (newValue / 0x10000000000)
 		else:
 			self.errorDialog = QErrorMessage(self)
 			self.errorDialog.showMessage("Value too large!", "overflow")
 
-	def poke(self, address, newValue):
+	def poke(self, address, newValue, limit=3):
 		if newValue <= 0xFF:
 			self._hexData[address] = "%c" % newValue
 		elif newValue <= 0xFFFFFFFF:
-			self._hexData[address] = "%c" % newValue % 0x100
-			if newValue > 0xFF:
-				self._hexData[address-1] = "%c" % (newValue / 0x100) % 0x100
-			if newValue > 0xFFFF:
-				self._hexData[address-2] = "%c" % (newValue / 0x10000) % 0x100
-			if newValue > 0xFFFFFF:
-				self._hexData[address-3] = "%c" % newValue / 0x1000000
+			self._hexData[address] = "%c" % (newValue % 0x100)
+			if newValue > 0xFF and limit >= 1:
+				self._hexData[address-1] = "%c" % ((newValue / 0x100) % 0x100)
+			if newValue > 0xFFFF and limit >= 2:
+				self._hexData[address-2] = "%c" % ((newValue / 0x10000) % 0x100)
+			if newValue > 0xFFFFFF and limit >= 3:
+				self._hexData[address-3] = "%c" % (newValue / 0x1000000)
 		else:
 			self.errorDialog = QErrorMessage(self)
 			self.errorDialog.showMessage("Value too large!", "overflow")
@@ -146,7 +146,7 @@ class HexDataContainer(object):
 class SubclassPicker(QComboBox):
 
 	def __init__(self, *args, **kwargs):
-		super(QComboBox, self).__init__(*args, **kwargs)
+		super(SubclassPicker, self).__init__(*args, **kwargs)
 		self.addItem("(None)")
 		for subclass in SUBCLASSES:
 			self.addItem(subclass)
@@ -160,7 +160,7 @@ class SubclassPicker(QComboBox):
 class CharacterEditWidget(QWidget):
 
 	def __init__(self, characterName, characterData, recruited, *args, **kwargs):
-		super(QWidget, self).__init__(*args, **kwargs)
+		super(CharacterEditWidget, self).__init__(*args, **kwargs)
 		self.data = characterData
 		self.layout = QGridLayout()
 		recruitedLabel = QCheckBox("Recruited")
@@ -188,8 +188,12 @@ class CharacterEditWidget(QWidget):
 			self.layout.addWidget(QLabel(stat + ":"), i+2, 0)
 			spinbox = QSpinBox()
 			spinbox.setMaximum(2147483647)
-			spinbox.setValue(self.data.value(CHAR_MEM_STRUCT[stat]))
-			spinbox.valueChanged.connect(self.pokeValue(self.data, CHAR_MEM_STRUCT[stat]))
+			if stat != "EXPERIENCE":
+				spinbox.setValue(self.data.value(CHAR_MEM_STRUCT[stat]))
+				spinbox.valueChanged.connect(self.pokeValue(self.data, CHAR_MEM_STRUCT[stat]))
+			else:
+				spinbox.setValue(self.data.bigValue(CHAR_MEM_STRUCT[stat]))
+				spinbox.valueChanged.connect(self.pokeValue(self.data, CHAR_MEM_STRUCT[stat], True))
 			self.layout.addWidget(spinbox, i+2, 1)
 		self.layout.addWidget(QLabel("SUBCLASS:"), len(STAT_ORDER)+2, 0)
 		subclass = SubclassPicker()
@@ -217,10 +221,15 @@ class CharacterEditWidget(QWidget):
 			value = value + 99
 		self.data.poke(CHAR_MEM_STRUCT["SUBCLASS"], value)
 
-	def pokeValue(self, dataContainer, address):
-		def pokeValueFunc(value):
-			dataContainer.poke(address, value)
-		return pokeValueFunc
+	def pokeValue(self, dataContainer, address, big=False):
+		if not big:
+			def pokeValueFunc(value):
+				dataContainer.poke(address, value)
+			return pokeValueFunc
+		else:
+			def pokeValueFunc(value):
+				dataContainer.bigPoke(address, value)
+			return pokeValueFunc
 
 	@property
 	def hexData(self):
@@ -229,7 +238,7 @@ class CharacterEditWidget(QWidget):
 class CharacterDataTab(QWidget):
 
 	def __init__(self, basePath, *args, **kwargs):
-		super(QWidget, self).__init__(*args, **kwargs)
+		super(CharacterDataTab, self).__init__(*args, **kwargs)
 		self.basePath = basePath
 		self.characterData = {}
 		self.layout = QGridLayout()
@@ -244,12 +253,6 @@ class CharacterDataTab(QWidget):
 				self.stack.addWidget(CharacterEditWidget(charName, data, recruitmentData.singleValue(index+1)))
 		self.layout.addWidget(self.liste, 0, 0, 2, 1)
 		self.layout.addWidget(self.stack, 0, 1)
-		bigFont = QFont()
-		bigFont.setPointSize(16)
-		self.saveButton = QPushButton("Save All Changes")
-		self.saveButton.setFont(bigFont)
-		self.layout.addWidget(self.saveButton, 2, 0, 1, 3)
-		self.saveButton.pressed.connect(self.saveEverything)
 		self.stack.setSizePolicy(QSizePolicy(QSizePolicy.Maximum))
 		self.setLayout(self.layout)
 		self.liste.currentRowChanged.connect(self.stack.setCurrentIndex)
@@ -282,20 +285,68 @@ class CharacterDataTab(QWidget):
 		for index, charName in enumerate(CHARACTER_NAMES):
 			self._saveCharacterData(index+1, self.stack.widget(index).hexData, self.basePath)
 
-	def saveEverything(self):
-		self.saveCharacterData()
+class MiscDataTab(QWidget):
+
+	def __init__(self, basePath, *args, **kwargs):
+		super(MiscDataTab, self).__init__(*args, **kwargs)
+		self.basePath = basePath
+		self.data = self.loadGeneralData(basePath)
+		self.layout = QGridLayout()
+		self.layout.setColumnStretch(2, 10)
+		self.layout.setRowStretch(len(GENERAL_STUFF_ORDER), 10)
+		for i, stat in enumerate(GENERAL_STUFF_ORDER):
+			self.layout.addWidget(QLabel(stat + ":"), i, 0)
+			spinbox = QSpinBox()
+			spinbox.setMaximum(2147483647)
+			memdata = GENERAL_MEM_STRUCT[stat]
+			spinbox.setValue(self.data.value(memdata[0], memdata[1]+1))
+			spinbox.valueChanged.connect(self.pokeValue(self.data, *memdata))
+			self.layout.addWidget(spinbox, i, 1)
+		self.setLayout(self.layout)
+
+	def pokeValue(self, dataContainer, address, limit):
+		def pokeValueFunc(value):
+			dataContainer.poke(address, value, limit)
+		return pokeValueFunc
+
+	def loadGeneralData(self, basePath):
+		try:
+			with open(os.path.join(basePath, "SHD01.ngd"), "rb") as f:
+				data = f.read()
+		except:
+			self.errorDialog = QErrorMessage(self)
+			self.errorDialog.showMessage("Error reading general data file. SAVING NOT RECOMMENDED. YOUR SAVE MAY BE (FURTHER) CORRUPTED.", "recruitmentFileRead")
+		else:
+			return HexDataContainer(data)
+
+	def saveGeneralData(self):
+		with open(os.path.join(self.basePath, "SHD01.ngd"), "wb") as f:
+			f.write(self.data.hexData)
 
 class MainWidget(QWidget):
 
 	def __init__(self, *args, **kwargs):
-		super(QWidget, self).__init__(*args, **kwargs)
+		super(MainWidget, self).__init__(*args, **kwargs)
 		self.tabWidget = QTabWidget()
-		self.tabWidget.addTab(CharacterDataTab(basePath="save1"), "Characters")
+		self.characterTab = CharacterDataTab(basePath="save1")
+		self.miscTab = MiscDataTab(basePath="save1")
+		self.tabWidget.addTab(self.characterTab, "Characters")
 		self.tabWidget.addTab(QLabel("Inventory!"), "Inventory")
-		self.tabWidget.addTab(QLabel("Misc!"), "Misc")
+		self.tabWidget.addTab(self.miscTab, "Misc")
+		self.tabWidget.addTab(QTextEdit("Fields currently limited to 2147483647 due to a Qt limitation I'm too lazy to circumvent. (Experience points above that limit won't be lost as long as you don't touch that character's experience field.)"), "About")
+		bigFont = QFont()
+		bigFont.setPointSize(16)
+		self.saveButton = QPushButton("Save All Changes")
+		self.saveButton.setFont(bigFont)
+		self.saveButton.pressed.connect(self.saveEverything)
 		self.layout = QGridLayout()
-		self.layout.addWidget(self.tabWidget)
+		self.layout.addWidget(self.tabWidget, 0, 0)
+		self.layout.addWidget(self.saveButton, 1, 0)
 		self.setLayout(self.layout)
+
+	def saveEverything(self):
+		self.characterTab.saveCharacterData()
+		self.miscTab.saveGeneralData()
 
 class MainWindow(QMainWindow):
 
