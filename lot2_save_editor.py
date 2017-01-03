@@ -331,9 +331,9 @@ class MainWidget(QWidget):
 		self.characterTab = CharacterDataTab(basePath="save1")
 		self.miscTab = MiscDataTab(basePath="save1")
 		self.tabWidget.addTab(self.characterTab, "Characters")
-		self.tabWidget.addTab(QLabel("Inventory!"), "Inventory")
+		#self.tabWidget.addTab(QLabel("Inventory!"), "Inventory")
 		self.tabWidget.addTab(self.miscTab, "Misc")
-		self.tabWidget.addTab(QTextEdit("Fields currently limited to 2147483647 due to a Qt limitation I'm too lazy to circumvent. (Experience points above that limit won't be lost as long as you don't touch that character's experience field.)"), "About")
+		self.tabWidget.addTab(QTextEdit("Fields currently limited to 2147483647 due to a Qt limitation I'm too lazy to circumvent. (Experience points above that limit won't be lost as long as you don't touch that character's experience field.)<br><br>Many addresses taken from Wymar's research after I noticed it existed. Thanks for the saved time and effort."), "About")
 		bigFont = QFont()
 		bigFont.setPointSize(16)
 		self.saveButton = QPushButton("Save All Changes")
@@ -356,8 +356,13 @@ class MainWindow(QMainWindow):
 		self.setObjectName("MainWindow")
 		self.setWindowIcon(QIcon("logo.png"))
 		self.setWindowTitle(EDITOR_TITLE)
-		self.mainWidget = MainWidget()
-		self.setCentralWidget(self.mainWidget)
+		if os.path.exists("save1"):
+			self.mainWidget = MainWidget()
+			self.setCentralWidget(self.mainWidget)
+		else:
+			QMessageBox.critical(self, "ERROR: No save folder", "You must copy your chosen save folder (the folder, not just its contents) to this directory as 'save1'. After editing, delete the original folder and replace it with the edited one. Be sure to keep backups!")
+			import sys
+			sys.exit()
 
 app = QApplication([EDITOR_TITLE])
 main = MainWindow()
