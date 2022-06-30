@@ -1,3 +1,9 @@
+Edited to use PyQt5 instead of PyQt4
+
+
+original readme:
+
+
 東方記偽器　～　Artificial Record
 By Doctus (kirikayuumura.noir@gmail.com)
 
