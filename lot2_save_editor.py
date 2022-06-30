@@ -21,8 +21,9 @@ By Doctus (kirikayuumura.noir@gmail.com)
     <http://www.gnu.org/licenses/>.
 '''
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
 import os
 
 EDITOR_TITLE = u"東方記偽器　～　Artificial Record v1.00"
@@ -93,7 +94,7 @@ CHAR_MEM_STRUCT = {"LEVEL": 3,
 class HexDataContainer(object):
 
 	def __init__(self, hexData):
-		self._hexData = [ord(byte) for byte in hexData]
+		self._hexData = [byte for byte in hexData]
 
 	@property
 	def hexData(self):
@@ -253,7 +254,7 @@ class CharacterDataTab(QWidget):
 				self.stack.addWidget(CharacterEditWidget(charName, data, recruitmentData.singleValue(index+1)))
 		self.layout.addWidget(self.liste, 0, 0, 2, 1)
 		self.layout.addWidget(self.stack, 0, 1)
-		self.stack.setSizePolicy(QSizePolicy(QSizePolicy.Maximum))
+		self.stack.setSizePolicy(QSizePolicy())
 		self.setLayout(self.layout)
 		self.liste.currentRowChanged.connect(self.stack.setCurrentIndex)
 
